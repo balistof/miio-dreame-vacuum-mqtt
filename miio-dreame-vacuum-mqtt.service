@@ -1,0 +1,13 @@
+[Unit]
+Description=Python bridge from MQTT to miio enabled dreame vacuum
+Documentation=https://github.com/balistof/miio-dreame-vacuum-mqtt
+After=openhab.service
+
+[Service]
+Type=simple
+ExecStart=/opt/miio-dreame-vacuum-mqtt/main.py
+WorkingDirectory=/opt/miio-dreame-vacuum-mqtt
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

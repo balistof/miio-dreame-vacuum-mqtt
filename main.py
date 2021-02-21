@@ -1,13 +1,12 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*
 import paho.mqtt.client as paho
-import json, sys
+import json, sys, getopt
 from threading import Thread, Event
 from miio.dreamevacuum import DreameVacuum
 
-
-broker = "localhost"
-vac = DreameVacuum("192.168.0.242", "717257585a4d5033436d4f616c673858")
+vac = None
+client = None
 
 
 class MyTimerThread(Thread):
@@ -30,7 +29,10 @@ class MyTimerThread(Thread):
         try:
             print("polling Dreame status")
             status = vac.status()
-            print(status)
+            status_dict = status.__dict__
+            client.publish("dreamevacuum/status", json.dumps(status_dict))
+            for prop, value in status_dict.items():
+                client.publish("dreamevacuum/properties/" + prop, value)
         except Exception as ex:
             print("ERROR", ex)
 
@@ -38,11 +40,11 @@ class MyTimerThread(Thread):
 timer = MyTimerThread()
 
 
-def on_connect(client, userdata, flags, rc):
+def on_connect(c, userdata, flags, rc):
     global timer
-    if rc==0:
+    if rc == 0:
         print("--> connected, rc: ", rc)
-        client.subscribe("dreamevacuum/command/#")
+        c.subscribe("dreamevacuum/command/#")
         print("subscribed to topics")
         timer.start()
         print("status polling timer started")
@@ -50,15 +52,16 @@ def on_connect(client, userdata, flags, rc):
         print("rc: ", rc)
 
 
-def on_disconnect(client, empty, rc):
+def on_disconnect(c, empty, rc):
     global timer
     print("--> disconnected; rc: ", rc)
     timer.stop()
+    timer.join()
     print("status polling timer stopped")
     timer = MyTimerThread()
 
 
-def on_message(client, userdata, message):
+def on_message(c, userdata, message):
     try:
         payload = str(message.payload.decode("utf-8"))
         print("message received: {}".format(str(payload)))
@@ -67,8 +70,27 @@ def on_message(client, userdata, message):
         print("error:", sys.exc_info()[0])
 
 
-def main():
-    client = paho.Client("client-001")
+def main(argv):
+    global vac, client
+    broker = "localhost"
+    vacuum_ip = "na"
+    vacuum_token = "na"
+    try:
+        opts, args = getopt.getopt(argv, "bh:vip:vt", ["broker_host=", "vacuum_ip=", "vacuum_token="])
+    except getopt.GetoptError as ex:
+        print("ERROR", ex)
+        print('main.py -bh <broker host> -bp <broker port> -vip <vacuum ip> -vt <vacuum token>')
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt in ("-bh", "--broker_host"):
+            broker = arg
+        elif opt in ("-vip", "--vacuum_ip"):
+            vacuum_ip = arg
+        elif opt in ("-vt", "--vacuum_token"):
+            vacuum_token = arg
+    vac = DreameVacuum(vacuum_ip, vacuum_token)
+
+    client = paho.Client("client-dreame-vacuum-001")
     client.on_message = on_message
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
@@ -86,5 +108,5 @@ def main():
     client.loop_stop()
 
 
-main()
-
+if __name__ == "__main__":
+    main(sys.argv[1:])

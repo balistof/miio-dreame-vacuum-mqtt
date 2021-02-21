@@ -1,12 +1,11 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*
 import paho.mqtt.client as paho
-import atexit, time
-import json, serial, sys
-from datetime import datetime
+import json, sys
 from threading import Thread, Event
 
 broker = "localhost"
+
 
 class MyTimerThread(Thread):
     def __init__(self):
@@ -30,45 +29,57 @@ class MyTimerThread(Thread):
         except Exception as ex:
             print("ERROR", ex)
 
+
 timer = MyTimerThread()
 
+
 def on_connect(client, userdata, flags, rc):
-  print("--> connected")
-  client.subscribe("dreamevacuum/command/#")
-  print("subscribed to topics")
-  timer.start()
-  print("status polling timer started")
+    global timer
+    if rc==0:
+        print("--> connected, rc: ", rc)
+        client.subscribe("dreamevacuum/command/#")
+        print("subscribed to topics")
+        timer.start()
+        print("status polling timer started")
+    else:
+        print("rc: ", rc)
+
 
 def on_disconnect(client, empty, rc):
-  print("--> disconnected")
-  timer.stop()
-  print("status polling timer stopped")
-  timer = myTimerThread()
+    global timer
+    print("--> disconnected; rc: ", rc)
+    timer.stop()
+    print("status polling timer stopped")
+    timer = MyTimerThread()
+
 
 def on_message(client, userdata, message):
-  try:
-    payload = str(message.payload.decode("utf-8"))
-    print("message received: {}".format(str(payload)))
-    print("message topic: {}".format(message.topic))
-  except:
-    print("error:", sys.exc_info()[0])
+    try:
+        payload = str(message.payload.decode("utf-8"))
+        print("message received: {}".format(str(payload)))
+        print("message topic: {}".format(message.topic))
+    except:
+        print("error:", sys.exc_info()[0])
+
 
 def main():
-  client = paho.Client("client-001")
-  client.on_message = on_message
-  client.on_connect = on_connect
-  client.on_disconnect = on_disconnect
-  client.reconnect_delay_set(min_delay=3, max_delay=30)
+    client = paho.Client("client-001")
+    client.on_message = on_message
+    client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
+    client.reconnect_delay_set(min_delay=3, max_delay=30)
 
-  print("connecting to broker: ", broker)
-  client.connect(broker)
-  try:
-      client.loop_forever()
-  except:
-      pass
+    print("connecting to broker: ", broker)
+    client.connect(broker)
+    try:
+        client.loop_forever()
+    except:
+        pass
 
-  print("stopping...")
-  client.disconnect()
-  client.loop_stop()
+    print("stopping...")
+    client.disconnect()
+    client.loop_stop()
+
 
 main()
+

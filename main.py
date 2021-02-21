@@ -3,8 +3,11 @@
 import paho.mqtt.client as paho
 import json, sys
 from threading import Thread, Event
+from miio.dreamevacuum import DreameVacuum
+
 
 broker = "localhost"
+vac = DreameVacuum("192.168.0.242", "717257585a4d5033436d4f616c673858")
 
 
 class MyTimerThread(Thread):
@@ -25,7 +28,9 @@ class MyTimerThread(Thread):
 
     def poll_status(self):
         try:
-            print("TODO: polling Dreame status")
+            print("polling Dreame status")
+            status = vac.status()
+            print(status)
         except Exception as ex:
             print("ERROR", ex)
 
